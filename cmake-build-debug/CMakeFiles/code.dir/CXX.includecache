@@ -1,0 +1,32 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/mnt/c/Users/Lenovo/Desktop/useforgit/tomasulo/alu.hpp
+
+/mnt/c/Users/Lenovo/Desktop/useforgit/tomasulo/loadStoreBuffer.hpp
+
+/mnt/c/Users/Lenovo/Desktop/useforgit/tomasulo/main.cpp
+cstdio
+-
+iostream
+-
+cstring
+-
+reservationStation.hpp
+/mnt/c/Users/Lenovo/Desktop/useforgit/tomasulo/reservationStation.hpp
+reorderBuffer.hpp
+/mnt/c/Users/Lenovo/Desktop/useforgit/tomasulo/reorderBuffer.hpp
+alu.hpp
+/mnt/c/Users/Lenovo/Desktop/useforgit/tomasulo/alu.hpp
+loadStoreBuffer.hpp
+/mnt/c/Users/Lenovo/Desktop/useforgit/tomasulo/loadStoreBuffer.hpp
+
+/mnt/c/Users/Lenovo/Desktop/useforgit/tomasulo/reorderBuffer.hpp
+
+/mnt/c/Users/Lenovo/Desktop/useforgit/tomasulo/reservationStation.hpp
+
