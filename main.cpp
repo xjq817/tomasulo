@@ -341,7 +341,7 @@ bool solve(unsigned& pc){
 }
 
 int main(){
-	freopen("bulgarian.data","r",stdin);
+//	freopen("bulgarian.data","r",stdin);
 //	freopen("new.txt","w",stdout);
 	char c[15];
 	unsigned addr=0;
