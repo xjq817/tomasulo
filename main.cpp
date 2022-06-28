@@ -9,12 +9,12 @@
 
 using namespace std;
 
-unsigned mem[500000],regVal[32];
+unsigned regVal[32],mem[500000];
 int regSta[32],Clock;
 
-//void printReg(){
-//	for (int i=0;i<32;i++) printf("i=%d %08x\n",i,regVal[i]);
-//}
+void printReg(){
+	for (int i=0;i<32;i++) printf("i=%d %08x\n",i,regVal[i]);
+}
 
 int trans(char c){
 	if (isdigit(c)) return c^48;
@@ -77,6 +77,7 @@ void broadcast(int dst,unsigned val){
 		LSNode x=loadStoreBuffer.get(j);
 		if (x.qj==dst) x.vj=val,x.qj=-1;
 		if (x.qk==dst) x.vk=val,x.qk=-1;
+//		if (x.pc==0x146c) printf("#####%08x %d %08x %d %d %d\n",x.vj,x.qj,x.vk,x.qk,x.busy,x.offset);
 		loadStoreBuffer.put(j,x);
 	}
 }
@@ -96,8 +97,13 @@ bool commit(unsigned& pc){
 	if (reorderBuffer.empty()) return 0;
 	u=reorderBuffer.front();
 	if (u.order==0x0ff00513) return 1;
+//	printf("Clock=%d order=%08x nowpc=%08x prepc=%08x ready=%d head=%d tail=%d\n",
+//		Clock,u.order,pc,u.pc,u.ready,reorderBuffer.getHead(),reorderBuffer.getTail());
+//	for (int i=15;i<16;i++) printf("i=%d val=%08x sta=%d\n",i,regVal[i],regSta[i]);
+//	printf("clock=%d pc=%08x order=%08x\n",Clock,u.pc,u.order);
 	if (!u.ready) return 0;
-//	printf("Clock=%d order=%08x nowpc=%04x prepc=%04x ready=%d\n",Clock,u.order,pc,u.pc,u.ready);
+//    if (Clock==133665)
+//        cerr<<u.pc<<" "<<u.order<<endl;
 //	printReg();
 	unsigned op=u.order&127;
 	int b=reorderBuffer.getHead();
@@ -122,7 +128,6 @@ bool commit(unsigned& pc){
 		loadStoreBuffer.clear();
 		regVal[u.dest]=u.pc+4;
 		pc=u.value;
-		if (regSta[u.dest]==b) regSta[u.dest]=-1;
 //		printf("%04x %d %08x %d\n",pc,getRs1(u.order),getImm(u.order),u.dest);
 		for (int i=0;i<32;i++) regSta[i]=-1;
 	}
@@ -131,7 +136,7 @@ bool commit(unsigned& pc){
 //		if (op==0b0000011) printf("rd=%d val=%08x\n",u.dest,u.value);
 		regVal[u.dest]=u.value;
 //		if (u.pc==0x1008) printf("!!!!!!%d %08x\n",u.dest,u.value);
-		broadcast(u.dest,u.value);
+//		broadcast(u.dest,u.value);
 		if (regSta[u.dest]==b) regSta[u.dest]=-1;
 	}
 	return 0;
@@ -143,7 +148,10 @@ void writeResult(){
 		if (u.busy!=2) continue;
 		RobNode v=reorderBuffer.get(u.dest);
 		v.value=u.value,v.ready=1,u.busy=0;
-		broadcast(u.dest,u.value);
+		if ((u.order&127)!=0b1101111 || 
+			(u.order&127)!=0b1100111)
+				broadcast(u.dest,u.value);
+		else broadcast(u.dest,u.pc+4);
 		reorderBuffer.put(u.dest,v);
 		reservationStation.put(i,u);
 		return;
@@ -171,20 +179,23 @@ void writeResult(){
 
 bool isPreSameStore(const LSNode& u){
 	int j=reorderBuffer.getHead();
+//	if (u.pc==0x146c) printf("$$$$$head=%d dest=%d busy=%d offset=%d\n",j,u.dest,u.busy,u.offset);
 	while(j!=u.dest){
 		RobNode v=reorderBuffer.get(j);
-		if ((v.order&127)==0b0100011){
-			if (!v.ready) return 1;
-			int delta=v.dest-u.value;
-			if (delta<0) delta=-delta;
-			if (delta<=2) return 1;
-		}
+		if ((v.order&127)==0b0100011) return 1;
+//		if ((v.order&127)==0b0100011){
+//			if (!v.ready) return 1;
+//			unsigned delta=v.dest-u.value;
+//			printf("%08x\n",delta);
+//			if (delta==0u || delta==2u || delta==(unsigned)-2u) return 1;
+//		}
 		j=(j+1)&31;
 	}
 	return 0;
 }
 
 void execution(){
+//	if (Clock>30) puts("fxxk1");
 	for (int i=0;i<32;i++){
 		RsNode u=reservationStation.get(i);
 		if (u.busy!=1) continue;
@@ -195,6 +206,7 @@ void execution(){
 		break;
 	}
 	
+//	if (Clock>30) puts("fxxk2");
 	if (loadStoreBuffer.getClock()){
 		if (Clock==loadStoreBuffer.getClock()+2){
 			int i=loadStoreBuffer.getOpPos();
@@ -206,21 +218,23 @@ void execution(){
 		}
 		return;
 	}
+//	if (Clock>30) puts("fxxk3");
 	for (int i=0;i<32;i++){
 		LSNode u=loadStoreBuffer.get(i);
 		if (u.busy!=1) continue;
+//		printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^%08x\n",u.pc);
 		if (u.offset && !isPreSameStore(u)){
 //			if (Clock==16) printf("%d %08x %d %d\n",i,u.order,u.offset,u.busy);
 			loadStoreBuffer.updClock(Clock,i);
 			return;
 		}
-		if (~u.qj) continue;
+		if (~u.qj || u.offset) continue;
 		u.value=u.imm+u.vj;
 		if ((u.order&127)==0b0000011) u.offset=1;
 		else u.busy=2;//,printf("????????%08x %08x\n",u.imm,u.vj);
 //		if (Clock==15) printf("%d %08x %d %d\n",i,u.order,u.offset,u.busy);
 		loadStoreBuffer.put(i,u);
-		return;
+		break;
 	}
 }
 
@@ -254,6 +268,8 @@ void issueLoadStore(unsigned order,unsigned& pc){
 	}
 	else regSta[u.dest=getRd(order)]=b;//,printf("#######%04x %d %d %d\n",pc,u.dest,regSta[u.dest],Clock);
 	v.imm=imm;
+	
+//	if (pc==0x146c) printf("r=%d b=%d imm=%08x vj=%08x qj=%d rd=%d\n",r,b,imm,v.vj,v.qj,u.dest);
 	
 	reorderBuffer.push(u);
 	loadStoreBuffer.put(r,v);pc+=4;
@@ -311,7 +327,10 @@ void issue(unsigned order,unsigned& pc){
 }
 
 bool solve(unsigned& pc){
+//	if (Clock==50) exit(0);
 	Clock++;
+//    if (Clock==)
+//        puts("???");
 	if (commit(pc)) return 1;regVal[0]=0;
 	writeResult(),execution();
 	issue(mem[pc]|(mem[pc+1]<<8)|(mem[pc+2]<<16)
@@ -322,7 +341,7 @@ bool solve(unsigned& pc){
 }
 
 int main(){
-//	freopen("array_test1.data","r",stdin);
+	freopen("bulgarian.data","r",stdin);
 //	freopen("new.txt","w",stdout);
 	char c[15];
 	unsigned addr=0;
