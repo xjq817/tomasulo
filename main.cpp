@@ -11,8 +11,8 @@ using namespace std;
 
 const int memSize=500000;
 
-unsigned regVal[32],mem[memSize];
-int regSta[32];
+unsigned regVal[32],mem[memSize],predictor[memSize];
+int regSta[32],waitBch=-1;
 
 int trans(char c){
 	if (isdigit(c)) return c^48;
@@ -86,7 +86,6 @@ bool commit(unsigned& pc){
 			store(u.order,u.dest,u.value);
 			reorderBuffer.pop();
 		}
-		return 0;
 	}
 	if (reorderBuffer.empty()) return 0;
 	u=reorderBuffer.front();
@@ -95,7 +94,8 @@ bool commit(unsigned& pc){
 	unsigned op=u.order&127;
 	int b=reorderBuffer.getHead();
 	if (op==0b0100011){
-		reorderBuffer.setClock();
+		if (!reorderBuffer.getClock())
+			reorderBuffer.setClock();
 		return 0;
 	}
 	if (op==0b1100011){
@@ -274,7 +274,16 @@ void issueOthers(unsigned order,unsigned& pc){
 	
 	if (op!=0b1100011) regSta[getRd(order)]=b;
 	reorderBuffer.push(u);
-	reservationStation.put(r,v);pc+=4;
+	reservationStation.put(r,v);
+	
+	/*if (op==0b1100011){
+		
+	}
+	else if (op==0b1100011){
+		if (predictor[pc]&2) waitBch=r;
+		else 
+	}
+	else */pc+=4;
 }
 
 void issue(unsigned order,unsigned& pc){
