@@ -9,7 +9,9 @@
 
 using namespace std;
 
-unsigned regVal[32],mem[500000];
+const int memSize=500000;
+
+unsigned regVal[32],mem[memSize];
 int regSta[32];
 
 int trans(char c){
@@ -195,7 +197,7 @@ void execution(){
 				u.busy=2,loadStoreBuffer.put(i,u);
 			}
 			else if (!loadStoreBuffer.getClock()
-				 && u.value<500000)
+				 && u.value<memSize)
 				loadStoreBuffer.setClock(i);
 		}
 		if (~u.qj || u.offset) continue;
