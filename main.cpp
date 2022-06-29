@@ -10,7 +10,7 @@
 using namespace std;
 
 unsigned regVal[32],mem[500000];
-int regSta[32],Clock;
+int regSta[32];
 
 int trans(char c){
 	if (isdigit(c)) return c^48;
@@ -78,11 +78,11 @@ void broadcast(int dst,unsigned val){
 bool commit(unsigned& pc){
 	RobNode u;
 	if (reorderBuffer.getClock()){
-		if (Clock==reorderBuffer.getClock()+2){
+		reorderBuffer.subClock();
+		if (!reorderBuffer.getClock()){
 			u=reorderBuffer.front();
 			store(u.order,u.dest,u.value);
 			reorderBuffer.pop();
-			reorderBuffer.delClock();
 		}
 		return 0;
 	}
@@ -93,7 +93,7 @@ bool commit(unsigned& pc){
 	unsigned op=u.order&127;
 	int b=reorderBuffer.getHead();
 	if (op==0b0100011){
-		reorderBuffer.updClock(Clock);
+		reorderBuffer.setClock();
 		return 0;
 	}
 	if (op==0b1100011){
@@ -168,12 +168,12 @@ void execution(){
 	}
 	
 	if (loadStoreBuffer.getClock()){
-		if (Clock==loadStoreBuffer.getClock()+2){
+		loadStoreBuffer.subClock();
+		if (!loadStoreBuffer.getClock()){
 			int i=loadStoreBuffer.getOpPos();
 			LSNode u=loadStoreBuffer.get(i);
 			u.value=load(u.order,u.value,1);
 			u.busy=2;
-			loadStoreBuffer.delClock();
 			loadStoreBuffer.put(i,u);
 		}
 	}
@@ -196,7 +196,7 @@ void execution(){
 			}
 			else if (!loadStoreBuffer.getClock()
 				 && u.value<500000)
-				loadStoreBuffer.updClock(Clock,i);
+				loadStoreBuffer.setClock(i);
 		}
 		if (~u.qj || u.offset) continue;
 		u.value=u.imm+u.vj;
@@ -284,7 +284,6 @@ void issue(unsigned order,unsigned& pc){
 }
 
 bool solve(unsigned& pc){
-	Clock++;
 	if (commit(pc)) return 1;regVal[0]=0;
 	writeResult();
 	execution();

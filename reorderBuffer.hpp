@@ -48,9 +48,9 @@ public:
 	
 	int getClock() const {return clock;}
 	
-	void delClock(){clock=0;}
+	void subClock(){clock--;}
 	
-	void updClock(const int& clk){clock=clk;}
+	void setClock(){clock=3;}
 	
 }reorderBuffer;
 

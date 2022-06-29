@@ -33,10 +33,10 @@ public:
 	
 	int getOpPos() const {return opPos;}
 	
-	void delClock() {clock=0;}
+	void subClock() {clock--;}
 	
-	void updClock(const int& clk,const int& pos){
-		clock=clk,opPos=pos;
+	void setClock(const int& pos){
+		clock=3,opPos=pos;
 	}
 	
 	void clear(){
