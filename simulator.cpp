@@ -373,8 +373,8 @@ void simulate(unsigned order){
 }
 
 int main(){
-	freopen("bulgarian.data","r",stdin);
-	freopen("std.txt","w",stdout);
+	freopen("array_test1.data","r",stdin);
+//	freopen("std.txt","w",stdout);
 	char c[15];
 	unsigned addr=0;
 	while(~scanf("%s",c)){
@@ -387,11 +387,12 @@ int main(){
 	while(1){
 		unsigned order=mem[pc]|(mem[pc+1]<<8)|(mem[pc+2]<<16)|(mem[pc+3]<<24);
 		if (order==0x0ff00513) break;
-		printf("order=%08x pc=%08x\n",order,pc);
-		for (int i=0;i<32;i++) printf("i=%d %08x\n",i,reg[i]);
+		printf("pc=%08x order=%08x\n",pc,order);
+//		for (int i=0;i<32;i++) printf("i=%d %08x\n",i,reg[i]);
 		simulate(order);reg[0]=0;
 //		system("pause");
 	}
 	printf("%d\n",reg[10]&255u);
+	for (int i=0;i<32;i++) printf("%d\n",reg[i]);
 	return 0;
 }

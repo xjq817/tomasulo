@@ -1,2 +1,7 @@
 .idea/
 cmake-build-debug/
+array_test1.data
+bulgarian.data
+main.exe
+simulator.exe
+std.txt

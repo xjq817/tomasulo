@@ -12,7 +12,7 @@ using namespace std;
 const int memSize=500000;
 
 unsigned regVal[32],mem[memSize],predictor[memSize];
-int regSta[32],waitBch=-1;
+int regSta[32],waitJump=-1;
 
 int trans(char c){
 	if (isdigit(c)) return c^48;
@@ -86,13 +86,16 @@ bool commit(unsigned& pc){
 			store(u.order,u.dest,u.value);
 			reorderBuffer.pop();
 		}
+		return 0;
 	}
 	if (reorderBuffer.empty()) return 0;
 	u=reorderBuffer.front();
+//	if (u.pc==0x109c) puts("###############fuxk");
 	if (u.order==0x0ff00513) return 1;
 	if (!u.ready) return 0;
 	unsigned op=u.order&127;
 	int b=reorderBuffer.getHead();
+//	printf("pc=%08x order=%08x b=%d\n",u.pc,u.order,b);
 	if (op==0b0100011){
 		if (!reorderBuffer.getClock())
 			reorderBuffer.setClock();
@@ -100,40 +103,53 @@ bool commit(unsigned& pc){
 	}
 	if (op==0b1100011){
 		if (u.value==1){
+//			printf("??????????pc=%04x order=%08x\n",u.pc,u.order);
 			reorderBuffer.clear();
 			reservationStation.clear();
 			loadStoreBuffer.clear();
-			pc=u.pc+immB(u.order);
+			waitJump=-1;
+			pc=u.dest;
 			for (int i=0;i<32;i++) regSta[i]=-1;
 		}
 		else reorderBuffer.pop();
 	}
 	else if (op==0b1101111 || op==0b1100111){
-		reorderBuffer.clear();
-		reservationStation.clear();
-		loadStoreBuffer.clear();
-		regVal[u.dest]=u.pc+4;
-		pc=u.value;
-		for (int i=0;i<32;i++) regSta[i]=-1;
+//		reorderBuffer.clear();
+//		reservationStation.clear();
+//		loadStoreBuffer.clear();
+		reorderBuffer.pop();
+		if (u.dest) regVal[u.dest]=u.value;
+//		if (u.pc==0x1098) printf("!!!!!!!!!!dest=%d val=%04x\n",u.dest,regVal[u.dest]);
+//		if (u.pc==0x1014) printf("!!!!!!!!!!sta=%d val=%04x\n",regSta[1],regVal[1]);
+		if (regSta[u.dest]==b) regSta[u.dest]=-1;
+//		pc=u.value;
+//		for (int i=0;i<32;i++) regSta[i]=-1;
 	}
 	else{
 		reorderBuffer.pop();
-		regVal[u.dest]=u.value;
+		if (u.dest) regVal[u.dest]=u.value;
 		if (regSta[u.dest]==b) regSta[u.dest]=-1;
 	}
 	return 0;
 }
 
-void writeResult(){
+void writeResult(unsigned& pc){
 	for (int i=0;i<32;i++){
 		RsNode u=reservationStation.get(i);
 		if (u.busy!=2) continue;
 		RobNode v=reorderBuffer.get(u.dest);
 		v.value=u.value,v.ready=1,u.busy=0;
-		if ((u.order&127)!=0b1101111 || 
-			(u.order&127)!=0b1100111)
-				broadcast(u.dest,u.value);
-		else broadcast(u.dest,u.pc+4);
+		/*if ((u.order&127)!=0b1101111 || 
+			(u.order&127)!=0b1100111)*/
+		broadcast(u.dest,u.value);
+		if ((u.order&127)==0b1101111 || 
+			(u.order&127)==0b1100111){
+//				if (u.pc==0x1014) printf("#########%04x %04x\n",regVal[1],u.value);
+//				printf("val=%04x reg1=%04x sta=%d pc=%04x wait=%d\n",u.value,regVal[1],regSta[1],u.pc,waitJump);
+				pc=u.value,waitJump=-1,v.value=u.pc+4;
+			}
+		if ((u.order&127)==0b1100011) v.dest=u.pc+u.imm;
+//		else broadcast(u.dest,u.pc+4);
 		reorderBuffer.put(u.dest,v);
 		reservationStation.put(i,u);
 		return;
@@ -215,11 +231,11 @@ void issueLoadStore(unsigned order,unsigned& pc){
 	RobNode u;LSNode v;
 	int b=reorderBuffer.getTail();
 	unsigned rs1=getRs1(order),rs2=getRs2(order),
-		op=(order&127),imm=getImm(order);
+		op=(order&127),imm=getImm(order),rd=getRd(order);
 	v.busy=1,v.dest=b;
 	u.order=v.order=order,u.pc=v.pc=pc;
 	
-	if (~regSta[rs1]){
+	if (~regSta[rs1] && rs1){
 		int x=regSta[rs1];
 		if (reorderBuffer.isReady(x))
 			v.vj=reorderBuffer.getVal(x),v.qj=-1;
@@ -228,7 +244,7 @@ void issueLoadStore(unsigned order,unsigned& pc){
 	else v.vj=regVal[rs1],v.qj=-1;
 	
 	if (op==0b0100011){
-		if (~regSta[rs2]){
+		if (~regSta[rs2] && rs2){
 			int x=regSta[rs2];
 			if (reorderBuffer.isReady(x))
 				v.vk=reorderBuffer.getVal(x),v.qk=-1;
@@ -236,7 +252,7 @@ void issueLoadStore(unsigned order,unsigned& pc){
 		}
 		else v.vk=regVal[rs2],v.qk=-1;
 	}
-	else regSta[u.dest=getRd(order)]=b;
+	else regSta[u.dest=rd]=rd?b:-1;
 	v.imm=imm;	
 	reorderBuffer.push(u);
 	loadStoreBuffer.put(r,v);pc+=4;
@@ -249,10 +265,10 @@ void issueOthers(unsigned order,unsigned& pc){
 	u.order=v.order=order,u.pc=v.pc=pc;
 	int b=reorderBuffer.getTail();
 	unsigned rs1=getRs1(order),rs2=getRs2(order),
-		op=(order&127),imm=getImm(order);
-	v.busy=1,v.dest=b,u.dest=getRd(order);
+		op=(order&127),imm=getImm(order),rd=getRd(order);
+	v.busy=1,v.dest=b,u.dest=rd;
 	if (op!=0b0110111 && op!=0b0010111 && op!=0b1101111){
-		if (~regSta[rs1]){
+		if (~regSta[rs1] && rs1){
 			int x=regSta[rs1];
 			if (reorderBuffer.isReady(x))
 				v.vj=reorderBuffer.getVal(x),v.qj=-1;
@@ -261,7 +277,7 @@ void issueOthers(unsigned order,unsigned& pc){
 		else v.vj=regVal[rs1],v.qj=-1;
 		
 		if (op!=0b0010011 && op!=0b1100111){
-			if (~regSta[rs2]){
+			if (~regSta[rs2] && rs2){
 				int x=regSta[rs2];
 				if (reorderBuffer.isReady(x))
 					v.vk=reorderBuffer.getVal(x),v.qk=-1;
@@ -272,21 +288,20 @@ void issueOthers(unsigned order,unsigned& pc){
 	}
 	v.imm=imm;
 	
-	if (op!=0b1100011) regSta[getRd(order)]=b;
+	if (op!=0b1100011) regSta[rd]=(rd?b:-1);
 	reorderBuffer.push(u);
 	reservationStation.put(r,v);
 	
-	/*if (op==0b1100011){
-		
-	}
-	else if (op==0b1100011){
-		if (predictor[pc]&2) waitBch=r;
-		else 
-	}
-	else */pc+=4;
+//	if (pc==0x109c) printf("b=%d FXXK!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",b);
+	
+	if (op==0b1101111 || op==0b1100111)
+		waitJump=r;
+	else pc+=4;
+//	printf("r=%d b=%d waitJump=%d\n",r,b,waitJump);
 }
 
 void issue(unsigned order,unsigned& pc){
+//	printf("%04x %08x\n",pc,order);
 	if (reorderBuffer.full()) return;
 	unsigned op=(order&127);
 	if (op==0b0000011 || op==0b0100011)
@@ -295,11 +310,12 @@ void issue(unsigned order,unsigned& pc){
 }
 
 bool solve(unsigned& pc){
-	if (commit(pc)) return 1;regVal[0]=0;
-	writeResult();
+	if (commit(pc)) return 1;
+	writeResult(pc);
 	execution();
-	issue(mem[pc]|(mem[pc+1]<<8)|(mem[pc+2]<<16)
-		|(mem[pc+3]<<24),pc);
+	if (!~waitJump)
+		issue(mem[pc]|(mem[pc+1]<<8)
+			|(mem[pc+2]<<16)|(mem[pc+3]<<24),pc);
 	return 0;
 }
 
