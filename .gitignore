@@ -5,3 +5,5 @@ bulgarian.data
 main.exe
 simulator.exe
 std.txt
+premain.cpp
+premain.exe

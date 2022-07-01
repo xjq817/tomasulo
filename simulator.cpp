@@ -373,7 +373,7 @@ void simulate(unsigned order){
 }
 
 int main(){
-	freopen("array_test1.data","r",stdin);
+	freopen("sample.data","r",stdin);
 //	freopen("std.txt","w",stdout);
 	char c[15];
 	unsigned addr=0;

@@ -52,6 +52,6 @@ public:
 	
 	void setClock(){clock=3;}
 	
-}reorderBuffer;
+}reorderBuffer_now,reorderBuffer_pre,reorderBuffer;
 
 #endif
