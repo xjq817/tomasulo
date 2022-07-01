@@ -146,8 +146,8 @@ void writeResult(unsigned& pc){
 		if (u.busy!=2) continue;
 		RobNode v=reorderBuffer.get(u.dest);
 		v.value=u.value,v.ready=1,u.busy=0;
-		if ((u.order&127)==0b1101111 || 
-			(u.order&127)==0b1100111)
+		if ((u.order&127)==0b1101111) v.value=u.pc+4;
+		if ((u.order&127)==0b1100111)
 			pc=u.value,waitJump=-1,v.value=u.pc+4;
 		broadcast(u.dest,v.value);
 		reorderBuffer.put(u.dest,v);
@@ -289,8 +289,8 @@ void issueOthers(unsigned order,unsigned& pc){
 	v.imm=imm;
 	
 	if (op!=0b1100011) regSta[rd]=(rd?b:-1);
-	if (op==0b1101111 || op==0b1100111)
-		waitJump=r;
+	if (op==0b1101111) pc+=imm;
+	else if (op==0b1100111) waitJump=r;
 	else if (op==0b1100011){
 		unsigned pdt=(order>>7)&255;
 		if (predictor[pdt]&2)
