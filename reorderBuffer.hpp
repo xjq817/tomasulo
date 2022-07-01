@@ -2,7 +2,7 @@
 #define REORDERBUFFER_HPP
 
 struct RobNode{
-	bool ready;
+	bool ready,isJump;
 	unsigned dest;
 	unsigned value;
 	unsigned order;

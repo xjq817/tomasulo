@@ -102,7 +102,7 @@ bool commit(unsigned& pc){
 	if (op==0b1100011){
 		unsigned pdt=(u.order>>7)&255;
 		if (u.value==1){
-			if (predictor[pdt]&2)
+			if (u.isJump)
 				reorderBuffer.pop();
 			else{
 				reorderBuffer.clear();
@@ -115,12 +115,12 @@ bool commit(unsigned& pc){
 			if (predictor[pdt]<3) predictor[pdt]++; 
 		}
 		else{
-			if (predictor[pdt]&2){
+			if (u.isJump){
 				reorderBuffer.clear();
 				reservationStation.clear();
 				loadStoreBuffer.clear();
 				waitJump=-1;
-				pc=u.pc+4;
+				pc=u.dest;
 				for (int i=0;i<32;i++) regSta[i]=-1;
 			}
 			else reorderBuffer.pop();
@@ -146,14 +146,10 @@ void writeResult(unsigned& pc){
 		if (u.busy!=2) continue;
 		RobNode v=reorderBuffer.get(u.dest);
 		v.value=u.value,v.ready=1,u.busy=0;
-		broadcast(u.dest,u.value);
 		if ((u.order&127)==0b1101111 || 
 			(u.order&127)==0b1100111)
 			pc=u.value,waitJump=-1,v.value=u.pc+4;
-		if ((u.order&127)==0b1100011){
-			v.dest=u.pc+u.imm;
-			if (waitJump==i) pc=v.dest,waitJump=-1;
-		}
+		broadcast(u.dest,v.value);
 		reorderBuffer.put(u.dest,v);
 		reservationStation.put(i,u);
 		return;
@@ -293,16 +289,18 @@ void issueOthers(unsigned order,unsigned& pc){
 	v.imm=imm;
 	
 	if (op!=0b1100011) regSta[rd]=(rd?b:-1);
-	reorderBuffer.push(u);
-	reservationStation.put(r,v);
 	if (op==0b1101111 || op==0b1100111)
 		waitJump=r;
 	else if (op==0b1100011){
 		unsigned pdt=(order>>7)&255;
-		if (predictor[pdt]&2) waitJump=r;
-		else pc+=4;
+		if (predictor[pdt]&2)
+			u.dest=pc+4,pc+=imm,u.isJump=1;
+		else u.dest=pc+imm,pc+=4,u.isJump=0;
 	}
 	else pc+=4;
+	
+	reorderBuffer.push(u);
+	reservationStation.put(r,v);
 }
 
 void issue(unsigned order,unsigned& pc){
