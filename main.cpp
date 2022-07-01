@@ -12,7 +12,7 @@ using namespace std;
 const int memSize=500000;
 
 unsigned regVal[32],mem[memSize];
-int regSta[32],waitJump=-1,predictor[memSize];
+int regSta[32],waitJump=-1,predictor[1<<8];
 
 int trans(char c){
 	if (isdigit(c)) return c^48;
@@ -100,8 +100,9 @@ bool commit(unsigned& pc){
 		return 0;
 	}
 	if (op==0b1100011){
+		unsigned pdt=(u.order>>7)&255;
 		if (u.value==1){
-			if (predictor[u.pc]&2)
+			if (predictor[pdt]&2)
 				reorderBuffer.pop();
 			else{
 				reorderBuffer.clear();
@@ -111,10 +112,10 @@ bool commit(unsigned& pc){
 				pc=u.dest;
 				for (int i=0;i<32;i++) regSta[i]=-1;
 			}
-			if (predictor[u.pc]<3) predictor[u.pc]++; 
+			if (predictor[pdt]<3) predictor[pdt]++; 
 		}
 		else{
-			if (predictor[u.pc]&2){
+			if (predictor[pdt]&2){
 				reorderBuffer.clear();
 				reservationStation.clear();
 				loadStoreBuffer.clear();
@@ -123,7 +124,7 @@ bool commit(unsigned& pc){
 				for (int i=0;i<32;i++) regSta[i]=-1;
 			}
 			else reorderBuffer.pop();
-			if (predictor[u.pc]) predictor[u.pc]--;
+			if (predictor[pdt]) predictor[pdt]--;
 		}
 	}
 	else if (op==0b1101111 || op==0b1100111){
@@ -297,7 +298,8 @@ void issueOthers(unsigned order,unsigned& pc){
 	if (op==0b1101111 || op==0b1100111)
 		waitJump=r;
 	else if (op==0b1100011){
-		if (predictor[pc]&2) waitJump=r;
+		unsigned pdt=(order>>7)&255;
+		if (predictor[pdt]&2) waitJump=r;
 		else pc+=4;
 	}
 	else pc+=4;
