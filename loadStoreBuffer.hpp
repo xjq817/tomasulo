@@ -45,6 +45,6 @@ public:
 	
 	LSNode get(const int& x) const {return a[x];}
 	
-}loadStoreBuffer_now,loadStoreBuffer_pre,loadStoreBuffer;
+}loadStoreBuffer_now,loadStoreBuffer_pre;
 
 #endif

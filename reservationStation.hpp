@@ -34,6 +34,6 @@ public:
 		for (int i=0;i<32;i++) a[i].busy=0;
 	}
 	
-}reservationStation_now,reservationStation_pre,reservationStation;
+}reservationStation_now,reservationStation_pre;
 
 #endif
