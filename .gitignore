@@ -7,3 +7,9 @@ simulator.exe
 std.txt
 premain.cpp
 premain.exe
+array_test2.data
+basicopt1.data
+bulgarian.dump
+sample.data
+statement_test.data
+superloop.data

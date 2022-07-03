@@ -10,12 +10,14 @@
 
 using namespace std;
 
-const int memSize=500000;
+const int memSize=500000,P=2939;
+
+int Clock,tot,Right;
 
 unsigned regVal_now[32],regVal_pre[32],mem[memSize];
 int regSta_now[32],regSta_pre[32];
 int waitJump_now=-1,waitJump_pre=-1;
-int predictor_now[32],predictor_pre[32];
+int predictor[P];
 
 int trans(char c){
 	return isdigit(c) ? c^48 : c-'A'+10;
@@ -96,10 +98,12 @@ int commit(unsigned& pc){
 		return 0;
 	}
 	if (op==0b1100011){
-		unsigned pdt=(u.order>>7)&31;
+		unsigned pdt=u.pc%P;
+		tot++;
 		if (u.value==1){
+			if (predictor[pdt]<3) predictor[pdt]++; 
 			if (u.isJump)
-				reorderBuffer_now.pop();
+				reorderBuffer_now.pop(),Right++;
 			else{
 				reorderBuffer_now.clear();
 				reservationStation_now.clear();
@@ -109,9 +113,9 @@ int commit(unsigned& pc){
 				for (int i=0;i<32;i++) regSta_now[i]=-1;
 				return 2;
 			}
-			if (predictor_pre[pdt]<3) predictor_now[pdt]++; 
 		}
 		else{
+			if (predictor[pdt]) predictor[pdt]--;
 			if (u.isJump){
 				reorderBuffer_now.clear();
 				reservationStation_now.clear();
@@ -121,8 +125,7 @@ int commit(unsigned& pc){
 				for (int i=0;i<32;i++) regSta_now[i]=-1;
 				return 2;
 			}
-			else reorderBuffer_now.pop();
-			if (predictor_pre[pdt]) predictor_now[pdt]--;
+			else reorderBuffer_now.pop(),Right++;
 		}
 	}
 	else{
@@ -314,8 +317,8 @@ void issueOthers(unsigned& pc){
 	if (op==0b1101111) pc+=imm;
 	else if (op==0b1100111) waitJump_now=r;
 	else if (op==0b1100011){
-		unsigned pdt=(order>>7)&31;
-		if (predictor_pre[pdt]&2)
+		unsigned pdt=pc%P;
+		if (predictor[pdt]&2)
 			u.dest=pc+4,pc+=imm,u.isJump=1;
 		else u.dest=pc+imm,pc+=4,u.isJump=0;
 	}
@@ -341,11 +344,11 @@ void copy(){
 	reservationStation_pre=reservationStation_now;
 	for (int i=0;i<32;i++)
 		regVal_pre[i]=regVal_now[i],
-		regSta_pre[i]=regSta_now[i],
-		predictor_pre[i]=predictor_now[i];
+		regSta_pre[i]=regSta_now[i];
 }
 
 bool solve(unsigned& pc){
+	Clock++;
 	copy();
 	int ret=commit(pc);
 	if (ret==1) return 1;
@@ -359,6 +362,7 @@ bool solve(unsigned& pc){
 }
 
 int main(){
+//	freopen("bulgarian.data","r",stdin);
 	char c[15];
 	unsigned addr=0;
 	while(~scanf("%s",c)){
@@ -372,5 +376,7 @@ int main(){
 	unsigned pc=0;
 	while(1) if (solve(pc)) break;
 	printf("%d\n",regVal_now[10]&255u);
+//	printf("%d\n",Clock);
+//	printf("%d %d %.6lf\n",tot,Right,1.*Right/tot);
 	return 0;
 }
